@@ -1,8 +1,68 @@
-# Prompt the user for the path to the main HTML file
-$MainHtmlFilePath = Read-Host "Please enter the full path to the main report HTML file (e.g., C:\path\to\BaselineReports.html)"
+# Prompt the user for the directory containing the main report and subfolder
+$BaseDirectory = Read-Host "Please enter the full path to the main report directory (e.g., C:\path\to\Directory)"
 
-# Automatically determine the folder path for individual reports
-$FolderPath = Join-Path -Path (Split-Path -Path $MainHtmlFilePath -Parent) -ChildPath "IndividualReports"
+# Validate the base directory path
+if (-Not (Test-Path -Path $BaseDirectory -PathType Container)) {
+    Write-Host "The provided directory path does not exist: $BaseDirectory" -ForegroundColor Red
+    exit
+}
+
+# Define the main report file path
+$MainHtmlFilePath = Join-Path -Path $BaseDirectory -ChildPath "BaselineReports.html"
+
+# Validate the main report file
+if (-Not (Test-Path -Path $MainHtmlFilePath -PathType Leaf)) {
+    Write-Host "The main report file does not exist at: $MainHtmlFilePath" -ForegroundColor Red
+    exit
+}
+
+# Define the path to the subfolder containing individual reports
+$FolderPath = Join-Path -Path $BaseDirectory -ChildPath "IndividualReports"
+
+# Validate the subfolder path
+if (-Not (Test-Path -Path $FolderPath -PathType Container)) {
+    Write-Host "The IndividualReports subfolder does not exist at: $FolderPath" -ForegroundColor Red
+    exit
+}
+
+# Debugging log to confirm paths
+Write-Host "Base directory: $BaseDirectory"
+Write-Host "Main HTML file path: $MainHtmlFilePath"
+Write-Host "IndividualReports folder path: $FolderPath"
+
+# Define the custom styles to include
+$CustomStyles = @"
+    /* Enforce blue background and title color */
+    body {
+        background-color: var(--background-color) !important;
+        color: var(--text-color);
+    }
+    h1 {
+        text-align: center;
+        font-family: "Barlow Condensed", Arial, sans-serif;
+        font-size: 36pt;
+        color: var(--primary-color) !important; /* Yellow title */
+    }
+
+    /* Table Customization */
+    table tr:nth-child(even) {
+        background-color: white; /* Clean row background */
+    }
+    table tr:hover {
+        background-color: #FFD700; /* Optional highlight color */
+    }
+    table, th, td {
+        border: 0.125em solid var(--primary-color);
+    }
+    th {
+        background-color: var(--secondary-color); /* Grey background for headers */
+        color: white;
+        text-transform: uppercase;
+        font-weight: bold;
+        padding: 0.5em;
+    }
+</style>
+"@
 
 # Function to update an HTML file
 function Update-HTMLFile {
@@ -21,6 +81,15 @@ function Update-HTMLFile {
     # Remove the entire <header> element
     $HtmlContent = $HtmlContent -replace '(?is)<header>.*?</header>', ''
 
+    # Fully remove the toggle container, including nested elements
+    $HtmlContent = $HtmlContent -replace '(?is)<div id="toggle-container">.*?</div>', ''
+
+    # Ensure the CSS variables are updated
+    $HtmlContent = $HtmlContent -replace '(:root\s*{)', '$1 --primary-color: #FFC628; --secondary-color: #575854; --background-color: #0e2438; --text-color: black; --border-color: black;'
+
+    # Insert the custom styles before the closing </style> tag
+    $HtmlContent = $HtmlContent -replace '(</style>)', "$CustomStyles"
+
     # Save the modified HTML back to the original file
     try {
         Set-Content -Path $HtmlFilePath -Value $HtmlContent
@@ -30,24 +99,13 @@ function Update-HTMLFile {
     }
 }
 
-# Check if the main HTML file exists
-if (Test-Path -Path $MainHtmlFilePath) {
-    # Remove the header from the main report
-    Update-HTMLFile -HtmlFilePath $MainHtmlFilePath
-} else {
-    Write-Host "Main HTML file not found at: $MainHtmlFilePath" -ForegroundColor Red
-}
+# Remove the header and update colors in the main report
+Update-HTMLFile -HtmlFilePath $MainHtmlFilePath
 
-# Check if the folder containing individual reports exists
-if (Test-Path -Path $FolderPath) {
-    # Loop through all sub-reports in the folder and remove the header from them
-    Get-ChildItem -Path $FolderPath -Filter "*.html" | ForEach-Object {
-        Update-HTMLFile -HtmlFilePath $_.FullName
-    }
-    Write-Host "All individual report files have been updated!"
-} else {
-    Write-Host "IndividualReports folder not found at: $FolderPath" -ForegroundColor Red
+# Loop through all sub-reports in the folder and update them
+Get-ChildItem -Path $FolderPath -Filter "*.html" | ForEach-Object {
+    Update-HTMLFile -HtmlFilePath $_.FullName
 }
 
 # Final message
-Write-Host "Script execution complete!"
+Write-Host "All HTML files have been updated successfully!"
