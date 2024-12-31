@@ -1,8 +1,8 @@
-# Define the path to the main HTML file
-$MainHtmlFilePath = "C:\Users\MichaelWaski\Desktop\M365BaselineConformance_2024_12_18_20_01_12\BaselineReports.html"
+# Prompt the user for the path to the main HTML file
+$MainHtmlFilePath = Read-Host "Please enter the full path to the main report HTML file (e.g., C:\path\to\BaselineReports.html)"
 
-# Define the path to the folder containing sub-reports
-$FolderPath = "C:\Users\MichaelWaski\Desktop\M365BaselineConformance_2024_12_18_20_01_12\IndividualReports"
+# Automatically determine the folder path for individual reports
+$FolderPath = Join-Path -Path (Split-Path -Path $MainHtmlFilePath -Parent) -ChildPath "IndividualReports"
 
 # Function to update an HTML file
 function Update-HTMLFile {
@@ -30,13 +30,24 @@ function Update-HTMLFile {
     }
 }
 
-# Remove the header from the main report
-Update-HTMLFile -HtmlFilePath $MainHtmlFilePath
+# Check if the main HTML file exists
+if (Test-Path -Path $MainHtmlFilePath) {
+    # Remove the header from the main report
+    Update-HTMLFile -HtmlFilePath $MainHtmlFilePath
+} else {
+    Write-Host "Main HTML file not found at: $MainHtmlFilePath" -ForegroundColor Red
+}
 
-# Loop through all sub-reports in the folder and remove the header from them
-Get-ChildItem -Path $FolderPath -Filter "*.html" | ForEach-Object {
-    Update-HTMLFile -HtmlFilePath $_.FullName
+# Check if the folder containing individual reports exists
+if (Test-Path -Path $FolderPath) {
+    # Loop through all sub-reports in the folder and remove the header from them
+    Get-ChildItem -Path $FolderPath -Filter "*.html" | ForEach-Object {
+        Update-HTMLFile -HtmlFilePath $_.FullName
+    }
+    Write-Host "All individual report files have been updated!"
+} else {
+    Write-Host "IndividualReports folder not found at: $FolderPath" -ForegroundColor Red
 }
 
 # Final message
-Write-Host "All HTML files have been updated to remove the header!"
+Write-Host "Script execution complete!"
